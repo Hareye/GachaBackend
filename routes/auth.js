@@ -3,13 +3,16 @@ const multiparty = require('multiparty');
 const bodyParser = require('body-parser');
 const path = require('path');
 
-const mysqlConnection = require("../utils/database");
+//const mysqlConnection = require("../utils/database");
+const cockroachDB = require("../utils/database");
 const accountHelper = require("../utils/accountHelper");
 
 const emailRegex = /^[A-Za-z0-9._-]+@[A-Za-z0-9.-]+$/;
 const passwordRegex = /^[A-Za-z0-9!@#$%^&*_\-.]*$/;
 
 const router = express.Router();
+
+
 
 /*
 *   Outputs
@@ -96,32 +99,41 @@ router.post("/resetPassword", (req, res) => {
 *   Changes password for the user associated with the resetId
 */
 router.post("/changePassword/:resetId", (req, res) => {
-    mysqlConnection.query(
+    cockroachDB.query(
         `SELECT userID, expiryDate FROM usersReset
-        WHERE resetHash = ?`,
+        WHERE resetHash = $1`,
         [req.params.resetId],
-        async function(err, rows, fields) {
+        async function(err, result) {
             if (err) throw err;
 
-            if (Object.keys(rows).length !== 0) {
-                var dateNow = Date.now();
+            if (result.rowCount !== 0) {
+                var dateNow = new Date();
+                var expiryDate = new Date(result.rows[0].expirydate);
 
-                if (dateNow <= rows[0].expiryDate) {
+                if (dateNow < expiryDate) {
                     var hash = await accountHelper.hashPassword(req.body.newPassword);
 
-                    mysqlConnection.query(
-                        `UPDATE users SET userPassHash = ?
-                        WHERE userID = ?`,
-                        [hash, rows[0].userID],
-                        (err, nRows, fields) => {
+                    cockroachDB.query(
+                        `UPDATE users SET userPassHash = $1
+                        WHERE userID = $2`,
+                        [hash, result.rows[0].userid],
+                        (err, result_) => {
                             if (err) throw err;
                             console.log("Updated new password");
                         }
                     )
 
-                    /*
-                    *   TO-DO: Remove resetHash from database
-                    */
+                    cockroachDB.query(
+                        `DELETE FROM usersReset
+                        WHERE userID = $1`,
+                        [result.rows[0].userid],
+                        (err, result_) => {
+                            if (err) throw err;
+                            console.log("Removed reset link");
+                        }
+                    )
+
+                    res.render("resetSuccess");
                 }
             }
         }
@@ -132,33 +144,34 @@ router.post("/changePassword/:resetId", (req, res) => {
 *   Verify user identity
 */
 router.get("/verify/:verifyId", (req, res) => {
-    mysqlConnection.query(
+    cockroachDB.query(
         `SELECT userID, expiryDate FROM usersVerification
-        WHERE verificationHash = ?`,
+        WHERE verificationHash = $1`,
         [req.params.verifyId],
-        (err, rows, fields) => {
+        (err, result) => {
             if (err) throw err;
 
-            if (Object.keys(rows).length !== 0) {
-                var dateNow = Date.now();
+            if (result.rowCount !== 0) {
+                var dateNow = new Date();
+                var expiryDate = new Date(result.rows[0].expirydate);
 
-                if (dateNow <= rows[0].expiryDate) {
-                    mysqlConnection.query(
+                if (dateNow < expiryDate) {
+                    cockroachDB.query(
                         `UPDATE users
                         SET verified = true
-                        WHERE userID = ?`,
-                        [req.params.verifyId, rows[0].userID],
-                        (err, rows, fields) => {
+                        WHERE userID = $1`,
+                        [result.rows[0].userid],
+                        (err, result_) => {
                             if (err) throw err;
                             // console.log("Verified user");
                         }
                     )
                 
-                    mysqlConnection.query(
+                    cockroachDB.query(
                         `DELETE FROM usersVerification
-                        WHERE verificationHash = ?`,
+                        WHERE verificationHash = $1`,
                         [req.params.verifyId],
-                        (err, rows, fields) => {
+                        (err, result_) => {
                             if (err) throw err;
                             // console.log("Removed verification link");
                         }
@@ -167,9 +180,26 @@ router.get("/verify/:verifyId", (req, res) => {
                     res.render("verificationPage");
                 } else {
                     console.log("Verification link expired");
-                    /*
-                    *   TO-DO: Delete user from database
-                    */
+
+                    cockroachDB.query(
+                        `DELETE FROM usersVerification
+                        WHERE userID = $1`,
+                        [result.rows[0].userid],
+                        (err, result_) => {
+                            if (err) throw err;
+                            console.log("Removed verification link");
+                        }
+                    )
+
+                    cockroachDB.query(
+                        `DELETE FROM users
+                        WHERE userID = $1`,
+                        [result.rows[0].userid],
+                        (err, result_) => {
+                            if (err) throw err;
+                            console.log("Removed user");
+                        }
+                    )
                 }
             }
         }
@@ -180,25 +210,33 @@ router.get("/verify/:verifyId", (req, res) => {
 *   Reset user password
 */
 router.get("/reset/:resetId", (req, res) => {
-    mysqlConnection.query(
-        `SELECT expiryDate FROM usersReset
-        WHERE resetHash = ?`,
+    cockroachDB.query(
+        `SELECT userID, expiryDate FROM usersReset
+        WHERE resetHash = $1`,
         [req.params.resetId],
-        (err, rows, fields) => {
+        (err, result) => {
             if (err) throw err;
 
-            if (Object.keys(rows).length !== 0) {
-                var dateNow = Date.now();
+            if (result.rowCount !== 0) {
+                var dateNow = new Date();
+                var expiryDate = new Date(result.rows[0].expirydate);
 
-                if (dateNow <= rows[0].expiryDate) {
+                if (dateNow < expiryDate) {
                     res.render("resetPassword", {
                         resetId: req.params.resetId,
                     });
                 } else {
                     console.log("Reset link expired");
-                    /*
-                    *   TO-DO: Delete resetHash from database
-                    */
+
+                    cockroachDB.query(
+                        `DELETE FROM usersReset
+                        WHERE userID = $1`,
+                        [result.rows[0].userid],
+                        (err, result_) => {
+                            if (err) throw err;
+                            console.log("Removed reset link");
+                        }
+                    )
                 }
             }
         }
