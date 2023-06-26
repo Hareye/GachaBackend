@@ -1,7 +1,6 @@
 const express = require('express');
 const multiparty = require('multiparty');
 const bodyParser = require('body-parser');
-const path = require('path');
 
 //const mysqlConnection = require("../utils/database");
 const cockroachDB = require("../utils/database");
@@ -11,8 +10,6 @@ const emailRegex = /^[A-Za-z0-9._-]+@[A-Za-z0-9.-]+$/;
 const passwordRegex = /^[A-Za-z0-9!@#$%^&*_\-.]*$/;
 
 const router = express.Router();
-
-
 
 /*
 *   Outputs

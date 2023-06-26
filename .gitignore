@@ -1,5 +1,5 @@
 node_modules/
 build/
 example_queries/
-utils/
 dbinit.sql
+.env

@@ -1,5 +1,5 @@
 const express = require('express');
-const mysqlConnection = require("../utils/database");
+const cockroachDB = require("../utils/database");
 
 const router = express.Router();
 
