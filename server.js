@@ -3,6 +3,7 @@ const path = require('path');
 
 const gacha = require('./routes/gacha');
 const auth = require('./routes/auth');
+const token = require('./routes/token');
 
 const server = express();
 const PORT = 3000;
@@ -22,6 +23,7 @@ server.use((req, res, next) => {
 
 server.use("/gacha", gacha);
 server.use("/auth", auth);
+server.use("/token", token);
 
 server.listen(PORT, () => {
     console.log(`Server listening on port ${PORT}`);

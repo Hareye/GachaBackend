@@ -3,46 +3,12 @@ require('dotenv').config();
 const nodemailer = require("nodemailer");
 const crypto = require('crypto');
 const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
 
 const nodemailerConfig = require("./nodemailerConfig");
-//const mysqlConnection = require("./database");
 const cockroachDB = require("./database");
 
 const transporter = nodemailer.createTransport(nodemailerConfig);
 const saltRounds = 10;
-
-/*
-*   Generate JWT access token for user
-*/
-function generateAccessToken(email) {
-    return new Promise((resolve, reject) => {
-        resolve(jwt.sign( { id: email }, process.env.TOKEN_SECRET, { expiresIn: '7d' }));
-    });
-}
-
-/*
-*   Compare accessToken saved on client side with the accessToken generated from their email
-*/
-function compareAccessToken(email, token) {
-    return new Promise((resolve, reject) => {
-        jwt.verify(token, process.env.TOKEN_SECRET, function(err, decoded) {
-            if (err) {
-                if (err.name === 'TokenExpiredError') {
-                    resolve(false);
-                } else {
-                    throw err;
-                }
-            }
-
-            if (decoded.id === email) {
-                resolve(true);
-            } else {
-                resolve(false);
-            }
-        });
-    });
-}
 
 /*
 *   Check if the user has verified yet
@@ -244,7 +210,6 @@ function sendResetEmail(receiver) {
 }
 
 module.exports = { 
-    generateAccessToken, compareAccessToken, getUserVerified, checkUserExists, 
-    insertUser, insertVerification, sendVerificationEmail, sendResetEmail,
-    insertReset, hashPassword,
+    getUserVerified, checkUserExists, insertUser, insertVerification, sendVerificationEmail, 
+    sendResetEmail, insertReset, hashPassword,
 }

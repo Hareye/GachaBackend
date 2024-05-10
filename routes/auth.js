@@ -2,45 +2,34 @@ const express = require('express');
 const multiparty = require('multiparty');
 const bodyParser = require('body-parser');
 
-//const mysqlConnection = require("../utils/database");
 const cockroachDB = require("../utils/database");
-const accountHelper = require("../utils/accountHelper");
+const authHelper = require("../utils/authHelper");
 
 const emailRegex = /^[A-Za-z0-9._-]+@[A-Za-z0-9.-]+$/;
 const passwordRegex = /^[A-Za-z0-9!@#$%^&*_\-.]*$/;
 
 const router = express.Router();
 
+// Move all the token related stuff into /token endpoint(?)
+
 /*
 *   Outputs
-*       accessToken: Randomly generated JWT access token
+*       verified: User has been verified
 *       not_verified: User email has not been verified or password is wrong
 *       invalid_fields: Email or password is invalid
-*       expired: accessToken has expired
 */
 router.post("/login", (req, res) => {
     var form = new multiparty.Form();
     form.parse(req, async function(err, fields, files) {
-        if (req.get("Authorization")) {
-            // Has accessToken => Login with email and accessToken
-            console.log("Login with email and accessToken");
-            if (await accountHelper.compareAccessToken(fields.email[0], req.get("Authorization")) == true) {
-                var accessToken = await accountHelper.generateAccessToken(fields.email[0]);
-                res.end(accessToken.toString());
+        console.log("Login with email and password");
+        if (fields.email[0].match(emailRegex) && fields.password[0].match(passwordRegex)) {
+            if (await authHelper.getUserVerified(fields.email[0], fields.password[0]) == true) {
+                res.end("verified");
             } else {
-                res.end("expired");
+                res.end("not_verified");
             }
         } else {
-            // No accessToken => Login with email and password
-            console.log("Login with email and password");
-            if (fields.email[0].match(emailRegex) && fields.password[0].match(passwordRegex)) {
-                if (await accountHelper.getUserVerified(fields.email[0], fields.password[0]) == true) {
-                    var accessToken = await accountHelper.generateAccessToken(fields.email[0]);
-                    res.end(accessToken.toString());
-                } else {
-                    res.end("not_verified");
-                }
-            }
+            res.end("invalid_fields");
         }
     });
 });
@@ -55,10 +44,10 @@ router.post("/register", bodyParser.text({ type: "text/plain" }), (req, res) => 
     var form = new multiparty.Form();
     form.parse(req, async function(err, fields, files) {
         if (fields.email[0].match(emailRegex) && fields.password[0].match(passwordRegex)) {
-            if (await accountHelper.checkUserExists(fields.email[0]) == false) {
-                await accountHelper.insertUser(fields.email[0], fields.password[0])
-                await accountHelper.insertVerification(fields.email[0]);
-                await accountHelper.sendVerificationEmail(fields.email[0]);
+            if (await authHelper.checkUserExists(fields.email[0]) == false) {
+                await authHelper.insertUser(fields.email[0], fields.password[0])
+                await authHelper.insertVerification(fields.email[0]);
+                await authHelper.sendVerificationEmail(fields.email[0]);
                 res.end("success");
             } else {
                 res.end("user_exists");
@@ -79,9 +68,9 @@ router.post("/resetPassword", (req, res) => {
 
     form.parse(req, async function(err, fields, files) {
         if (fields.email[0].match(emailRegex)) {
-            if (await accountHelper.checkUserExists(fields.email[0]) == true) {
-                await accountHelper.insertReset(fields.email[0]);
-                await accountHelper.sendResetEmail(fields.email[0]);
+            if (await authHelper.checkUserExists(fields.email[0]) == true) {
+                await authHelper.insertReset(fields.email[0]);
+                await authHelper.sendResetEmail(fields.email[0]);
                 res.end("success");
             } else {
                 res.end("invalid_fields");
@@ -108,7 +97,7 @@ router.post("/changePassword/:resetId", (req, res) => {
                 var expiryDate = new Date(result.rows[0].expirydate);
 
                 if (dateNow < expiryDate) {
-                    var hash = await accountHelper.hashPassword(req.body.newPassword);
+                    var hash = await authHelper.hashPassword(req.body.newPassword);
 
                     cockroachDB.query(
                         `UPDATE users SET userPassHash = $1
