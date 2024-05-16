@@ -54,7 +54,7 @@ router.post("/verifyRememberToken", (req, res) => {
     form.parse(req, async function(err, fields, files) {
         console.log("Verifying remember token");
         if (await tokenHelper.verifyRememberToken(fields.rememberToken[0])) {
-            var email = await tokenHelper.getRememberTokenID(fields.rememberToken[0]);
+            var email = await tokenHelper.getIDFromToken(fields.rememberToken[0]);
             console.log("... verified");
             res.end(email);
         } else {

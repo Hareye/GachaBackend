@@ -178,6 +178,9 @@ function sendVerificationEmail(receiver) {
     })
 }
 
+/*
+*   Sends a password reset email to the user
+*/
 function sendResetEmail(receiver) {
     return new Promise((resolve, reject) => {
         cockroachDB.query(

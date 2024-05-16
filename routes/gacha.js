@@ -3,6 +3,7 @@ const multiparty = require('multiparty');
 const cockroachDB = require("../utils/database");
 
 const gachaHelper = require("../utils/gachaHelper");
+const tokenHelper = require("../utils/tokenHelper");
 
 const router = express.Router();
 
@@ -15,14 +16,15 @@ router.post('/pull', (req, res, next) => {
     form.parse(req, async function(err, fields, files) {
         if (req.get("authToken")) {
             // Has authorization token
-            if (!await gachaHelper.checkAuthExpired(req.get("authToken"))) {
+            if (await tokenHelper.verifyAuthToken(req.get("authToken"))) {
                 // authToken not expired
-                var email = await gachaHelper.getEmailFromToken(req.get("authToken"));
+                var email = await tokenHelper.getIDFromToken(req.get("authToken"));
                 console.log(email);
                 console.log(fields.pulls[0]);
                 console.log(fields.banner[0]);
             } else {
                 // authToken has expired
+                console.log("Expired!");
                 res.end("expired");
             }
         } else {
@@ -38,9 +40,16 @@ router.post('/pull', (req, res, next) => {
 router.post('/rates', (req, res, next) => {
     var form = new multiparty.Form();
     form.parse(req, async function(err, fields, files) {
-        console.log(fields.banner[0]);
+        var rates;
 
-        var rates = JSON.stringify(await gachaHelper.loadRates(fields.banner[0]));
+        console.log("Loading rates for: " + fields.banner[0]);
+
+        if (fields.banner[0] === "Standard") {
+            rates = JSON.stringify(await gachaHelper.loadRates());
+        } else if (fields.banner[0] === "Focus") {
+            rates = JSON.stringify(await gachaHelper.loadRates(fields.anime[0]));
+        }
+
         res.end(rates);
     });
 });

@@ -1,52 +1,29 @@
 require('dotenv').config();
 
-const jwt = require('jsonwebtoken');
 const cockroachDB = require("./database");
 
 /*
 *   Universal Rates
-*   1*: 80%
-*   2*: 15%
-*   3*: 5%
+*   R*: 80%
+*   SR*: 15%
+*   UR*: 5%
 */
 
-/*
-*   Extracts the user email from the JWT authToken
+const rRate = 80;
+const srRate = 15;
+const urRate = 5;
+
+const rates = {
+    rRates: rRate,
+    srRates: srRate,
+    urRates: urRate,
+}
+
+/****************************************
 *
-*   Note: Should be running checkAuthExpired before this function call to ensure that token has not expired
-*/
-function getEmailFromToken(token) {
-    return new Promise((resolve, reject) => {
-        jwt.verify(token, process.env.TOKEN_SECRET, function(err, decoded) {
-            if (err) {
-                // Throw error if there was an issue with verifying user identity
-                throw err;
-            }
-
-            resolve(decoded.id);
-        });
-    })
-}
-
-/*
-*   Check if authToken has expired
-*/
-function checkAuthExpired(token) {
-    return new Promise((resolve, reject) => {
-        jwt.verify(token, process.env.TOKEN_SECRET, function(err, decoded) {
-            if (err) {
-                if (err.name === 'TokenExpiredError') {
-                    resolve(true);
-                } else {
-                    // If any other errors occur, just treat it as authToken expired for now
-                    resolve(true);
-                }
-            }
-
-            resolve(false);
-        });
-    })
-}
+*   PUBLIC METHODS
+*
+*****************************************/
 
 function standardPull(pulls) {
 
@@ -59,40 +36,111 @@ function focusPull(banner, pulls) {
 /*
 *   Load the rates for the selected banner
 */
-function loadRates(banner, anime) {
+function loadRates(anime, character) {
     return new Promise((resolve, reject) => {
-        if (banner === "Standard") {
-            cockroachDB.query(
-                `SELECT COUNT(charactername) AS totalCharacters,
-                (SELECT COUNT(rarity) FROM characters WHERE rarity = 1) AS totalOneStars,
-                (SELECT COUNT(rarity) FROM characters WHERE rarity = 2) AS totalTwoStars,
-                (SELECT COUNT(rarity) FROM characters WHERE rarity = 3) AS totalThreeStars
-                FROM characters`,
-                (err, result) => {
-                    if (err) throw err;
-    
-                    if (result.rowCount !== 0) {
-                        //console.log(result.rows[0].totalcharacters);
-                        //console.log(result.rows[0].totalonestars);
-                        //console.log(result.rows[0].totaltwostars);
-                        //console.log(result.rows[0].totalthreestars);
-
-                        //var oneStarRates = 80 / result.rows[0].totalonestars;
-                        var twoStarRates = 15 / result.rows[0].totaltwostars;
-                        var threeStarRates = 5 / result.rows[0].totalthreestars;
-    
-                        resolve({
-                            twoStarRates: twoStarRates,
-                            threeStarRates: threeStarRates
-                        });
-                    }
-    
-                }
-            )
+        if (anime) {
+            // If anime was passed in => Focus Banner
+            Promise.all(
+                [queryRates(anime), queryCharacters(anime)]
+            ).then((result) => {
+                resolve({
+                    ...rates,
+                    ...result[0],
+                    characters: result[1],
+                });
+            });
+        } else if (character) {
+            // If character was passed in => Character Banner
+            console.log("Load rate up test!");
+        } else {
+            // If neither was passed in => Standard Banner
+            Promise.all(
+                [queryRates(), queryCharacters()]
+            ).then((result) => {
+                resolve({
+                    ...rates,
+                    ...result[0],
+                    characters: result[1],
+                });
+            });
         }
     });
 }
 
+/****************************************
+*
+*   PRIVATE METHODS
+*
+*****************************************/
+
+/*
+*   Query the rates for the selected banner
+*/
+function queryRates(anime) {
+    return new Promise((resolve, reject) => {
+        var query = `SELECT COUNT(charactername) AS totalCharacters,
+                    (SELECT COUNT(rarity) FROM characters WHERE rarity = 'R') AS totalR,
+                    (SELECT COUNT(rarity) FROM characters WHERE rarity = 'SR') AS totalSR,
+                    (SELECT COUNT(rarity) FROM characters WHERE rarity = 'UR') AS totalUR
+                    FROM characters`;
+        var queryParam = [];
+    
+        if (anime) {
+            query += ` WHERE animename = $1`;
+            queryParam.push(anime);
+        }
+    
+        cockroachDB.query(
+            query,
+            queryParam,
+            (err, result) => {
+                if (err) throw err;
+    
+                if (result.rowCount !== 0) {
+                    //console.log(result.rows[0].totalcharacters);
+    
+                    var rCharacterRates = rRate / result.rows[0].totalr;
+                    var srCharacterRates = srRate / result.rows[0].totalsr;
+                    var urCharacterRates = urRate / result.rows[0].totalur;
+    
+                    resolve({
+                        rCharacterRates: rCharacterRates,
+                        srCharacterRates: srCharacterRates,
+                        urCharacterRates: urCharacterRates,
+                    });
+                }
+            }
+        )
+    });
+}
+
+/*
+*   Query the characters for the selected banner
+*/
+function queryCharacters(anime) {
+    return new Promise((resolve, reject) => {
+        var query = `SELECT charactername, rarity FROM characters`;
+        var queryParam = [];
+    
+        if (anime) {
+            query += ` WHERE animename = $1`;
+            queryParam.push(anime);
+        }
+
+        cockroachDB.query(
+            query,
+            queryParam,
+            (err, result) => {
+                if (err) throw err;
+    
+                if (result.rowCount !== 0) {
+                    resolve(result.rows);
+                }
+            }
+        )
+    });
+}
+
 module.exports = { 
-    getEmailFromToken, checkAuthExpired, loadRates
+    loadRates
 }

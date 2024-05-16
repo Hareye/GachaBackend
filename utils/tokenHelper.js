@@ -33,37 +33,16 @@ function generateRememberToken(email) {
 }
 
 /*
-*   Return ID inside JWT auth token
+*   Extract ID from tokens
 */
-function getAuthTokenID(authToken) {
+function getIDFromToken(token) {
     return new Promise((resolve, reject) => {
-        jwt.verify(authToken, process.env.TOKEN_SECRET, function(err, decoded) {
+        jwt.verify(token, process.env.TOKEN_SECRET, function(err, decoded) {
             if (err) throw err;
 
-            if (decoded.exp > Math.floor(Date.now() / 1000) && decoded.type === "auth") {
-                resolve(decoded.id);
-            }
-
-            resolve();
+            resolve(decoded.id);
         });
     });
-}
-
-/*
-*   Return ID inside JWT remember token
-*/
-function getRememberTokenID(rememberToken) {
-    return new Promise((resolve, reject) => {
-        jwt.verify(rememberToken, process.env.TOKEN_SECRET, function(err, decoded) {
-            if (err) throw err;
-
-            if (decoded.exp > Math.floor(Date.now() / 1000) && decoded.type === "remember") {
-                resolve (decoded.id);
-            }
-
-            resolve();
-        });
-    })
 }
 
 /*
@@ -72,12 +51,17 @@ function getRememberTokenID(rememberToken) {
 function verifyAuthToken(authToken) {
     return new Promise((resolve, reject) => {
         jwt.verify(authToken, process.env.TOKEN_SECRET, function(err, decoded) {
+            // JWT will automatically check for expiry and catch the error
             if (err) {
+                /* if (err.name === 'TokenExpiredError') {
+                    resolve(false);
+                } */
+
                 // console.log(err);
                 resolve(false);
             }
 
-            if (decoded.exp > Math.floor(Date.now() / 1000) && decoded.type === "auth") {
+            if (decoded.type === "auth") {
                 resolve(true);
             }
 
@@ -97,7 +81,7 @@ function verifyRememberToken(rememberToken) {
                 resolve(false);
             };
 
-            if (decoded.exp > Math.floor(Date.now() / 1000) && decoded.type === "remember") {
+            if (decoded.type === "remember") {
                 resolve(true);
             }
 
@@ -107,6 +91,6 @@ function verifyRememberToken(rememberToken) {
 }
 
 module.exports = { 
-    generateAuthToken, generateRememberToken, getAuthTokenID, getRememberTokenID, verifyAuthToken,
+    generateAuthToken, generateRememberToken, getIDFromToken, verifyAuthToken,
     verifyRememberToken,
 }
