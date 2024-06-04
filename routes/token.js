@@ -19,7 +19,7 @@ router.post("/generateAuthToken", (req, res) => {
         console.log("Generating auth token");
         if (fields.email[0].match(emailRegex)) {
             var authToken = await tokenHelper.generateAuthToken(fields.email[0]);
-            res.end(authToken.toString());
+            res.end(JSON.stringify(authToken));
         } else {
             res.end("invalid_fields");
         }

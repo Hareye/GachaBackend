@@ -4,3 +4,4 @@ example_queries/
 dbinit.sql
 insert.sql
 .env
+certs/

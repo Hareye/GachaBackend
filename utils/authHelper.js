@@ -15,10 +15,12 @@ const saltRounds = 10;
 */
 function getUserVerified(email, password) {
     return new Promise((resolve, reject) => {
+        var query = `SELECT userPassHash FROM users ` +
+                    `WHERE userEmail = $1 ` +
+                    `AND verified = true`;
+
         cockroachDB.query(
-            `SELECT userPassHash FROM users
-            WHERE userEmail = $1
-            AND verified = true`,
+            query,
             [email],
             (err, result) => {
                 if (err) throw err;
@@ -45,9 +47,11 @@ function getUserVerified(email, password) {
 */
 function checkUserExists(email) {
     return new Promise((resolve, reject) => {
+        var query = `SELECT EXISTS (SELECT userEmail FROM users ` +
+                    `WHERE userEmail = $1) AS userExists`;
+
         cockroachDB.query(
-            `SELECT EXISTS (SELECT userEmail FROM users
-            WHERE userEmail = $1) AS userExists`,
+            query,
             [email],
             (err, result) => {
                 if (err) throw err;
@@ -84,10 +88,11 @@ function hashPassword(password) {
 function insertUser(email, password) {
     return new Promise(async function(resolve, reject) {
         var hash = await hashPassword(password);
+        var query = `INSERT INTO users (verified, userEmail, userPassHash, userDisplayName) ` +
+                    `VALUES (false, $1, $2, 'Guest')`;
         
         cockroachDB.query(
-            `INSERT INTO users (verified, userEmail, userPassHash, userDisplayName)
-            VALUES (false, $1, $2, 'Guest')`,
+            query,
             [email, hash],
             (err, result) => {
                 if (err) throw err;
@@ -106,10 +111,11 @@ function insertVerification(email) {
         crypto.randomBytes(48, function(err, buf) {
             var verToken = buf.toString('hex');
             var expiryDate = new Date(new Date().getTime() + 60 * 60 * 1000).toISOString();
+            var query = `INSERT INTO usersVerification (userID, verificationHash, expiryDate) ` +
+                        `VALUES ((SELECT userID FROM users WHERE userEmail = $1), $2, $3)`;
             
             cockroachDB.query(
-                `INSERT INTO usersVerification (userID, verificationHash, expiryDate)
-                VALUES ((SELECT userID FROM users WHERE userEmail = $1), $2, $3)`,
+                query,
                 [email, verToken, expiryDate],
                 (err, result) => {
                     if (err) throw err;
@@ -129,10 +135,11 @@ function insertReset(email) {
         crypto.randomBytes(64, function(err, buf) {
             var resetToken = buf.toString('hex');
             var expiryDate = new Date(new Date().getTime() + 60 * 60 * 1000).toISOString();
+            var query = `INSERT INTO usersReset (userID, resetHash, expiryDate) ` +
+                        `VALUES ((SELECT userID FROM users WHERE userEmail = $1), $2, $3)`;
     
             cockroachDB.query(
-                `INSERT INTO usersReset (userID, resetHash, expiryDate)
-                VALUES ((SELECT userID FROM users WHERE userEmail = $1), $2, $3)`,
+                query,
                 [email, resetToken, expiryDate],
                 (err, result) => {
                     if (err) throw err;
@@ -149,9 +156,11 @@ function insertReset(email) {
 */
 function sendVerificationEmail(receiver) {
     return new Promise((resolve, reject) => {
+        var query = `SELECT verificationHash FROM usersVerification ` +
+                    `WHERE userID = (SELECT userID FROM users WHERE userEmail = $1)`;
+
         cockroachDB.query(
-            `SELECT verificationHash FROM usersVerification
-            WHERE userID = (SELECT userID FROM users WHERE userEmail = $1)`,
+            query,
             [receiver],
             (err, result) => {
                 if (err) throw err;
@@ -183,9 +192,11 @@ function sendVerificationEmail(receiver) {
 */
 function sendResetEmail(receiver) {
     return new Promise((resolve, reject) => {
+        var query = `SELECT resetHash FROM usersReset ` +
+                    `WHERE userID = (SELECT userID FROM users WHERE userEmail = $1)`;
+
         cockroachDB.query(
-            `SELECT resetHash FROM usersReset
-            WHERE userID = (SELECT userID FROM users WHERE userEmail = $1)`,
+            query,
             [receiver],
             (err, result) => {
                 if (err) throw err;

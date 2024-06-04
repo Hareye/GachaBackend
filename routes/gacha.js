@@ -16,12 +16,19 @@ router.post('/pull', (req, res, next) => {
     form.parse(req, async function(err, fields, files) {
         if (req.get("authToken")) {
             // Has authorization token
-            if (await tokenHelper.verifyAuthToken(req.get("authToken"))) {
-                // authToken not expired
-                var email = await tokenHelper.getIDFromToken(req.get("authToken"));
-                console.log(email);
-                console.log(fields.pulls[0]);
-                console.log(fields.banner[0]);
+            var authToken = JSON.parse(req.get("authToken"));
+
+            if (await tokenHelper.verifyAuthToken(authToken)) {
+                // authToken verified
+                var email = await tokenHelper.getIDFromToken(authToken);
+
+                if (fields.banner[0] === "Standard") {
+                    var unitsPulled = await gachaHelper.pull(email, fields.pulls[0]);
+                } else if (fields.banner[0] === "Focus") {
+                    var unitsPulled = await gachaHelper.pull(email, fields.pulls[0], fields.anime[0]);
+                }
+
+                res.end(JSON.stringify(unitsPulled));
             } else {
                 // authToken has expired
                 console.log("Expired!");
