@@ -31,9 +31,9 @@ function loadUnits(email) {
 */
 function queryUnits(email) {
     return new Promise((resolve, reject) => {
-        var select = `SELECT characters.skinname, characters.charactername, userscards.characterlevel, characters.combattype, characters.animename, ` +
-                      `characters.rarity, characters.element, characters.tags, charactersbasestats.hp, charactersbasestats.atk, ` +
-                      `charactersbasestats.def, charactersbasestats.mag, charactersbasestats.res, charactersbasestats.spd FROM users `;
+        var select = `SELECT userscards.cardid, characters.skinname, characters.charactername, userscards.characterlevel, characters.combattype, ` +
+                     `characters.animename, characters.rarity, characters.element, characters.tags, charactersbasestats.hp, charactersbasestats.atk, ` +
+                     `charactersbasestats.def, charactersbasestats.mag, charactersbasestats.res, charactersbasestats.spd FROM users `;
         var join = `JOIN userscards ON users.userid = userscards.userid ` +
                    `JOIN characters ON userscards.characterid = characters.characterid ` +
                    `JOIN charactersbasestats ON characters.characterid = charactersbasestats.characterid `;
