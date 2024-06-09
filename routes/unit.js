@@ -26,6 +26,38 @@ router.get("/load", (req, res) => {
             }
         } else {
             // No authorization token
+            res.end("invalid");
+        }
+    });
+});
+
+router.post("/dismiss", (req, res) => {
+    var form = new multiparty.Form();
+    form.parse(req, async function(err, fields, files) {
+        if (req.get("authToken")) {
+            // Has authorization token
+            var authToken = JSON.parse(req.get("authToken"));
+
+            if (await tokenHelper.verifyAuthToken(authToken)) {
+                console.log("Dismissing units...");
+
+                // authToken verified
+                var email = await tokenHelper.getIDFromToken(authToken);
+                var units = await JSON.parse(fields.list[0]);
+
+                if (await unitHelper.dismissUnits(email, units)) {
+                    res.end("success");
+                } else {
+                    res.end("error");
+                }
+            } else {
+                // authToken has expired
+                console.log("Expired!");
+                res.end("expired");
+            }
+        } else {
+            // No authorization token
+            res.end("invalid");
         }
     });
 });

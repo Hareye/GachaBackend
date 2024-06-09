@@ -84,7 +84,7 @@ router.post("/resetPassword", (req, res) => {
 /*
 *   Changes password for the user associated with the resetId
 */
-router.post("/changePassword/:resetId", (req, res) => {
+router.get("/changePassword/:resetId", (req, res) => {
     cockroachDB.query(
         `SELECT userID, expiryDate FROM usersReset
         WHERE resetHash = $1`,

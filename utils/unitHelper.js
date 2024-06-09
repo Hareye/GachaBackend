@@ -20,6 +20,16 @@ function loadUnits(email) {
     });
 }
 
+function dismissUnits(email, units) {
+    return new Promise((resolve, reject) => {
+        Promise.all(
+            [deleteUnits(email, units)]
+        ).then((result) => {
+            resolve(result[0]);
+        });
+    });
+}
+
 /****************************************
 *
 *   PRIVATE METHODS
@@ -55,6 +65,38 @@ function queryUnits(email) {
     });
 }
 
+function deleteUnits(email, units) {
+    return new Promise((resolve, reject) => {
+        var del = `DELETE FROM userscards `;
+        var condition = `WHERE cardid IN ` + formatList(units) + ` AND userid = `;
+        var subquery = `(SELECT userid FROM users WHERE useremail = $1)`
+        var query = del + condition + subquery;
+
+        cockroachDB.query(
+            query,
+            [email],
+            (err, result) => {
+                if (err) throw err;
+
+                resolve(true);
+            }
+        )
+    });
+}
+
+function formatList(units) {
+    var query = `(`;
+
+    units.list.forEach((id) => {
+        query += id + `, `;
+    });
+
+    query = query.substring(0, query.length - 2);
+    query += `)`;
+
+    return query;
+}
+
 module.exports = { 
-    loadUnits,
+    loadUnits, dismissUnits
 }
